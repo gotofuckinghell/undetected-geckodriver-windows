@@ -35,6 +35,22 @@ import os
 import shutil
 import sys
 
+
+def _utf8_stdio():
+    """Русский вывод роняет CLI на консоли с чужой локалью (cp1252, cp866, cp1251).
+
+    Пользователь видит UnicodeEncodeError вместо сообщения об ошибке, поэтому
+    принудительно переводим потоки в UTF-8 с заменой непечатаемых символов.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
+_utf8_stdio()
+
 # Отдельная NUL-терминированная C-строка "webdriver" в пуле строк Gecko.
 # Требуемая длина замены — ровно 9 байт, чтобы не смещать оффсеты в секции.
 SIGNATURE = b"\x00webdriver\x00"

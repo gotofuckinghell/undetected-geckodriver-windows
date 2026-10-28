@@ -26,6 +26,13 @@ try:
 except ImportError:
     sys.exit("нужен selenium: pip install selenium")
 
+# Русский вывод роняет CLI на консоли с чужой локалью (cp1252 и т.п.).
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 BINARY_NAMES = ("librewolf.exe", "firefox.exe", "librewolf", "firefox")
 DRIVER_NAMES = ("geckodriver.exe", "geckodriver")
 

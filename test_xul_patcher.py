@@ -186,10 +186,29 @@ class PatcherTest(unittest.TestCase):
 
     # --- CLI ---
 
-    def cli(self, *args):
+    def cli(self, *args, env=None):
         r = subprocess.run([sys.executable, PATCHER, *args],
-                           capture_output=True, text=True, timeout=120)
-        return r.returncode, r.stdout + r.stderr
+                           capture_output=True, text=True, timeout=120,
+                           encoding="utf-8", errors="replace", env=env)
+        return r.returncode, (r.stdout or "") + (r.stderr or "")
+
+    def cli_non_utf8(self, *args):
+        """Запуск под консолью с чужой локалью — как на англоязычном Windows."""
+        env = dict(os.environ, PYTHONIOENCODING="cp1252", PYTHONUTF8="0")
+        return self.cli(*args, env=env)
+
+    def test_cli_survives_cp1252_console(self):
+        p = self.make(b"HDR" + P.SIGNATURE)
+        rc, out = self.cli_non_utf8("--check", p)
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("UnicodeEncodeError", out)
+        self.assertIn("НЕ пропатчен", out, "русский вывод должен доходить целиком")
+
+    def test_cli_error_survives_cp1252_console(self):
+        rc, out = self.cli_non_utf8("--check", os.path.join(self.dir, "absent.dll"))
+        self.assertEqual(rc, 1, out)
+        self.assertNotIn("UnicodeEncodeError", out)
+        self.assertIn("не найден", out)
 
     def test_cli_check_and_patch(self):
         p = self.make(b"HDR" + P.SIGNATURE)
