@@ -96,6 +96,19 @@ python patch_xul_webdriver.py "D:/Portable/LibreWolf/xul.dll"
 
 ## Проверка
 
+### Тесты
+
+```bash
+python -m unittest -v test_xul_patcher
+```
+
+14 тестов без внешних зависимостей: сигнатура и длина замены, `scan` (clean / patched /
+notfound), побайтовый roundtrip patch→restore, идемпотентность повторного патча, отказ на
+неподдерживаемой сборке (файл не портится), `restore` без бэкапа, неприкосновенность
+`.orig`, чтение версии из `application.ini`, поиск бинарника, CLI-смоук.
+
+### Прогон в браузере
+
 ```bash
 python verify_selenium.py --browser-dir "C:/Program Files/LibreWolf"
 ```
