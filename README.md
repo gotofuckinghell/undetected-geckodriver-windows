@@ -68,6 +68,19 @@ git clone https://github.com/gotofuckinghell/undetected-geckodriver-windows.git
 cd undetected-geckodriver-windows
 ```
 
+### Состав репозитория
+
+```
+patch_xul_webdriver.py    патчер (stdlib, без зависимостей)
+verify_selenium.py        проверка результата в живом браузере
+test_xul_patcher.py       22 теста (unittest)
+vendor/                   точные копии трёх исходных проектов + PROVENANCE.md
+```
+
+`vendor/` содержит архивы оригиналов с зафиксированными коммитами — метод можно изучить и
+воспроизвести, даже если GitHub недоступен. Подробности, SHA и лицензии:
+[`vendor/PROVENANCE.md`](vendor/PROVENANCE.md).
+
 ## Использование
 
 ```bash
@@ -183,10 +196,15 @@ python patch_xul_webdriver.py --browser-dir "C:/Program Files/LibreWolf"   # е�
   исходный проект: находит бинарник Firefox, копирует его и патчит, чтобы тот не выставлял
   `navigator.webdriver`. Идейная основа (Linux).
 * **[luauminati/undetected_geckodriver](https://github.com/luauminati/undetected_geckodriver)** —
-  поддерживаемый форк того же проекта, актуальная версия пакета.
+  зеркало того же проекта: на момент снятия копии HEAD совпадал с upstream байт в байт
+  (коммит `38d863ed115b`), независимых правок кода нет.
 * **[coleleavitt/undetected_geckodriver](https://github.com/coleleavitt/undetected_geckodriver)** —
   Rust-патчер, который прямо патчит `libxul`: ищет строку `webdriver` в бинарнике и заменяет
   байты. Именно из его подхода взят способ работы со строкой в пуле строк.
+
+Точные копии всех трёх лежат в [`vendor/`](vendor/PROVENANCE.md) — с зафиксированными
+коммитами, датами и лицензиями, чтобы метод можно было изучить и воспроизвести даже если
+GitHub недоступен.
 
 Вклад этого репозитория: адаптация под Windows (`xul.dll`), точная сигнатура
 `\0webdriver\0` вместо широкого поиска (чтобы не задеть строку телеметрии
