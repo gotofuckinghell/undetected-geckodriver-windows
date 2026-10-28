@@ -1,0 +1,38 @@
+name: tests
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / py${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.9", "3.11", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Показать версию Python
+        run: python --version
+
+      - name: Тесты патчера (stdlib unittest, без зависимостей)
+        run: python -W error::ResourceWarning -m unittest -v test_xul_patcher
+
+      - name: Проверка синтаксиса скриптов
+        run: python -m py_compile patch_xul_webdriver.py verify_selenium.py test_xul_patcher.py
+
+      - name: CLI-смоук (--help и --list)
+        run: |
+          python patch_xul_webdriver.py --help
+          python patch_xul_webdriver.py --list || true

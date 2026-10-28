@@ -1,5 +1,7 @@
 # undetected-geckodriver-windows
 
+[![tests](https://github.com/gotofuckinghell/undetected-geckodriver-windows/actions/workflows/tests.yml/badge.svg)](https://github.com/gotofuckinghell/undetected-geckodriver-windows/actions/workflows/tests.yml)
+
 Патч бинарника Gecko (`xul.dll` / `libxul.so`), убирающий `navigator.webdriver` —
 Windows-порт метода из проекта **undetected_geckodriver**. Без JS-инъекций, без
 патчинга geckodriver, без внешних зависимостей. Selenium/Marionette продолжают работать.
