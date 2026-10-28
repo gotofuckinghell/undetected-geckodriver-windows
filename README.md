@@ -147,7 +147,7 @@ WebDriver (New)                  => missing (passed)
 WebDriver Advanced               => passed
 Plugins Length                   => 5
 Plugins is of type PluginArray   => passed
-Languages                        => cs-CZ
+Languages                        => en-US
 ```
 
 Плагины при этом **настоящие**, а не подделанные через `Object.defineProperty` —
