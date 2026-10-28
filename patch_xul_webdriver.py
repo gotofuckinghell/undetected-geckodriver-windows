@@ -94,7 +94,8 @@ def browser_version(browser_dir):
     for pattern in ("application.ini", "**/application.ini", "platform.ini"):
         for ini in glob.glob(os.path.join(browser_dir, pattern), recursive=True):
             try:
-                txt = open(ini, encoding="utf-8", errors="ignore").read()
+                with open(ini, encoding="utf-8", errors="ignore") as f:
+                    txt = f.read()
             except OSError:
                 continue
             ver = None
@@ -104,6 +105,44 @@ def browser_version(browser_dir):
             if ver:
                 return ver
     return None
+
+
+# --- метаданные бэкапа ------------------------------------------------------
+# После обновления браузера xul.dll заменяется, а .orig остаётся от старой версии.
+# Восстановление такого бэкапа смешало бы файлы разных версий и сломало браузер.
+# Поэтому рядом с .orig пишется .meta.json с версией и хешем оригинала.
+
+def meta_path(path):
+    return path + ".orig.json"
+
+
+def write_meta(path, backup):
+    """Записывает сведения о бэкапе: версия приложения, размер, sha256."""
+    import hashlib
+    import json
+    with open(backup, "rb") as f:
+        digest = hashlib.sha256(f.read()).hexdigest()
+    info = {
+        "backup": os.path.basename(backup),
+        "app_version": browser_version(os.path.dirname(path)),
+        "size": os.path.getsize(backup),
+        "sha256": digest,
+    }
+    try:
+        with open(meta_path(path), "w", encoding="utf-8") as f:
+            json.dump(info, f, indent=2)
+    except OSError:
+        pass
+    return info
+
+
+def read_meta(path):
+    import json
+    try:
+        with open(meta_path(path), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
 
 
 def do_check(path, show_version=True):
@@ -135,11 +174,30 @@ def do_patch(path):
         return 1
 
     backup = path + ".orig"
-    if not os.path.exists(backup):
-        shutil.copy2(path, backup)
-        print(f"бэкап:  {backup}")
+    cur_ver = browser_version(os.path.dirname(path))
+    old_meta = read_meta(path)
+
+    if os.path.exists(backup):
+        old_ver = (old_meta or {}).get("app_version")
+        same = (old_ver == cur_ver)
+        if old_ver and not same:
+            # браузер обновился: .orig от старой версии — восстановление сломало бы
+            # сборку. Файл сейчас чистый (status == clean), поэтому пересоздаём бэкап.
+            shutil.copy2(path, backup)
+            write_meta(path, backup)
+            print(f"бэкап:  пересоздан для новой версии "
+                  f"({old_ver} -> {cur_ver})")
+        else:
+            print(f"бэкап:  уже существует, не перезаписываю ({backup})")
+        if old_meta is None:
+            write_meta(path, backup)
     else:
-        print(f"бэкап:  уже существует, не перезаписываю ({backup})")
+        shutil.copy2(path, backup)
+        write_meta(path, backup)
+        print(f"бэкап:  {backup}")
+
+    if not os.path.exists(meta_path(path)):
+        write_meta(path, backup)
 
     with open(path, "rb") as f:
         data = bytearray(f.read())
@@ -155,11 +213,22 @@ def do_patch(path):
     return 0
 
 
-def do_restore(path):
+def do_restore(path, force=False):
     backup = path + ".orig"
     if not os.path.exists(backup):
         print(f"ОШИБКА: бэкап не найден: {backup}")
         return 1
+
+    cur_ver = browser_version(os.path.dirname(path))
+    meta = read_meta(path)
+    bak_ver = (meta or {}).get("app_version")
+    if bak_ver and cur_ver and bak_ver != cur_ver and not force:
+        print(f"ОТКАЗ: бэкап от версии {bak_ver}, а браузер сейчас {cur_ver}.")
+        print("       Восстановление смешало бы файлы разных версий и сломало браузер.")
+        print("       Нужен перепатч вместо откатa, либо запусти с --force,")
+        print("       если уверен, что версии совместимы.")
+        return 1
+
     try:
         shutil.copy2(backup, path)
     except PermissionError:
@@ -176,6 +245,8 @@ def main():
     ap.add_argument("--browser-dir", help="каталог браузера (найдёт бинарник сам)")
     ap.add_argument("--check", action="store_true", help="только проверить статус")
     ap.add_argument("--restore", action="store_true", help="откатить из .orig")
+    ap.add_argument("--force", action="store_true",
+                    help="откат даже если бэкап от другой версии браузера")
     ap.add_argument("--list", action="store_true", help="показать найденные сборки")
     a = ap.parse_args()
 
@@ -200,7 +271,7 @@ def main():
         if a.check:
             do_check(t)
         elif a.restore:
-            rc |= do_restore(t)
+            rc |= do_restore(t, force=a.force)
         else:
             rc |= do_patch(t)
     return rc

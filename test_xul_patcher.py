@@ -104,6 +104,70 @@ class PatcherTest(unittest.TestCase):
         self.assertEqual(P.do_patch(p), 0)
         self.assertEqual(self.read(p + ".orig"), b"marker")
 
+    # --- обновление браузера ---
+
+    def set_version(self, ver):
+        with open(os.path.join(self.dir, "application.ini"), "w", encoding="utf-8") as f:
+            f.write("[App]\nName=LibreWolf\nVersion=%s\n" % ver)
+
+    def test_meta_written_on_patch(self):
+        self.set_version("158.0.1")
+        p = self.make(b"HDR" + P.SIGNATURE)
+        P.do_patch(p)
+        self.assertTrue(os.path.exists(P.meta_path(p)), "meta-файл должен появиться")
+        meta = P.read_meta(p)
+        self.assertEqual(meta["app_version"], "158.0.1")
+        self.assertEqual(meta["size"], os.path.getsize(p + ".orig"))
+        self.assertEqual(len(meta["sha256"]), 64)
+
+    def test_restore_refuses_on_version_mismatch(self):
+        """Бэкап от 158 при браузере 159 — откат смешал бы версии."""
+        self.set_version("158.0.1")
+        p = self.make(b"HDR" + P.SIGNATURE)
+        P.do_patch(p)
+        self.set_version("159.0.1")           # браузер обновился
+        self.assertEqual(P.do_restore(p), 1, "должен отказать")
+        self.assertTrue(os.path.exists(p + ".orig"))
+
+    def test_restore_force_bypasses_version_check(self):
+        self.set_version("158.0.1")
+        payload = b"HDR" + P.SIGNATURE
+        p = self.make(payload)
+        P.do_patch(p)
+        self.set_version("159.0.1")
+        self.assertEqual(P.do_restore(p, force=True), 0)
+        self.assertEqual(self.read(p), payload)
+
+    def test_restore_allowed_when_versions_match(self):
+        self.set_version("158.0.1")
+        payload = b"HDR" + P.SIGNATURE
+        p = self.make(payload)
+        P.do_patch(p)
+        self.assertEqual(P.do_restore(p), 0)
+
+    def test_backup_recreated_after_browser_update(self):
+        """После обновления xul.dll чистый, а .orig — от старой версии: бэкап обновляется."""
+        self.set_version("158.0.1")
+        p = self.make(b"OLD158" + P.SIGNATURE)
+        P.do_patch(p)
+        self.assertEqual(P.read_meta(p)["app_version"], "158.0.1")
+
+        # имитация обновления: новый чистый бинарник + новая версия в ini
+        with open(p, "wb") as f:
+            f.write(b"NEW159" + P.SIGNATURE)
+        self.set_version("159.0.1")
+
+        self.assertEqual(P.do_patch(p), 0)
+        self.assertTrue(self.read(p + ".orig").startswith(b"NEW159"),
+                        "бэкап должен соответствовать новой версии")
+        self.assertEqual(P.read_meta(p)["app_version"], "159.0.1")
+        self.assertIn(b"\x00webdrivXr\x00", self.read(p))
+
+    def test_cli_force_flag_exists(self):
+        rc, out = self.cli("--help")
+        self.assertEqual(rc, 0)
+        self.assertIn("--force", out)
+
     # --- версия и поиск ---
 
     def test_browser_version_from_ini(self):

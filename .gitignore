@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 *.orig
+*.orig.json
 *.bak
 venv/
 .venv/
